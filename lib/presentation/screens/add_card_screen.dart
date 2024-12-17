@@ -1,4 +1,4 @@
-import 'package:camera/camera.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:limon_pay/presentation/screens/formatter.dart';
@@ -9,7 +9,6 @@ import 'package:limon_pay/theme/color.dart';
 import '../bloc/add_card/add_card_bloc.dart';
 import '../widgets/icon_button_widget.dart';
 import 'dialog/nfc_dialog.dart';
-import 'scan_card/test_card.dart';
 
 class AddCardScreen extends StatefulWidget {
   const AddCardScreen({super.key});
@@ -167,11 +166,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
   }
 
   void _openCameraScreen() async {
-    final cameras = await availableCameras();
-    final firstCamera = cameras.firstWhere(
-          (camera) => camera.lensDirection == CameraLensDirection.back,
-    );
-
     Navigator.push(
       context,
       MaterialPageRoute(

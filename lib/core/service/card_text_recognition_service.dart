@@ -12,7 +12,7 @@ class CardTextRecognitionService {
       final inputImage = _convertCameraImageToInputImage(image, rotation);
       final recognizedText = await _textRecognizer.processImage(inputImage);
 
-      // _logRecognizedText(recognizedText);
+      _logRecognizedText(recognizedText);
 
       final centerCrop = _calculateCenterCrop(image);
 
@@ -57,7 +57,7 @@ class CardTextRecognitionService {
     return Rect.fromCenter(
       center: Offset(image.width / 2, image.height / 2),
       width: image.height.toDouble() / aspectRatio,
-      height: image.width.toDouble(),
+      height: image.height.toDouble(),
     );
   }
 
