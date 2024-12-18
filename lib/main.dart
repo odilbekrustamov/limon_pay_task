@@ -6,14 +6,13 @@ import 'package:limon_pay/presentation/screens/add_card_screen.dart';
 import 'package:limon_pay/theme/theme.dart';
 
 import 'core/service/locator.dart';
+import 'nfc_screen.dart';
 
 void main() {
   setupServices();
-  runApp(
-    MultiBlocProvider(providers: [
-      BlocProvider(create: (context) => CardDetailsCubit()),
-    ], child: const MyApp())
-  );
+  runApp(MultiBlocProvider(providers: [
+    BlocProvider(create: (context) => CardDetailsCubit()),
+  ], child: const MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -22,8 +21,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: appTheme,
+      title: 'Flutter Demo', theme: appTheme,
+      // home: const NfcScreen()
       home: BlocProvider(
         create: (_) => AddCardBloc(),
         child: const AddCardScreen(),
@@ -31,4 +30,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-

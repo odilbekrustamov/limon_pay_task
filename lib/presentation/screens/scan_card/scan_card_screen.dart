@@ -1,4 +1,3 @@
-
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,9 +7,9 @@ import 'dart:async';
 import '../../../core/service/camera_service.dart';
 import '../../../core/service/card_text_recognition_service.dart';
 import '../../../core/service/locator.dart';
+import '../../../theme/color.dart';
 import '../../card_details_cubit.dart';
 import '../../widgets/card_painter.dart';
-
 
 class ScanCardScreen extends StatefulWidget {
   const ScanCardScreen({super.key});
@@ -22,21 +21,20 @@ class ScanCardScreen extends StatefulWidget {
 class _ScanCardScreenState extends State<ScanCardScreen> {
   late CameraService _cameraService;
   late CardTextRecognitionService _cardTextRecognaitionService;
-
+  bool _isProcessing = false;
   bool _isInitializing = false;
-  bool _textRecognitionStopped = false;
 
   @override
   void initState() {
     super.initState();
     context.read<CardDetailsCubit>().updateCardDetails(
-      "",
-      "",
-    );
+          "",
+          "",
+        );
 
     _cameraService = locator<CameraService>();
     _cardTextRecognaitionService = locator<CardTextRecognitionService>();
-    _initializeCamera();
+    _initializeServices();
   }
 
   @override
@@ -44,6 +42,12 @@ class _ScanCardScreenState extends State<ScanCardScreen> {
     _cameraService.dispose();
     _cardTextRecognaitionService.dispose();
     super.dispose();
+  }
+
+  void _initializeServices() {
+    _cameraService = locator<CameraService>();
+    _cardTextRecognaitionService = locator<CardTextRecognitionService>();
+    _initializeCamera();
   }
 
   Future<void> _initializeCamera() async {
@@ -55,49 +59,43 @@ class _ScanCardScreenState extends State<ScanCardScreen> {
 
   void _startFrameProcessing() {
     _cameraService.cameraController?.startImageStream((image) async {
-      try {
-        if(!_textRecognitionStopped){
-          final details = await _cardTextRecognaitionService.extractCardDetails(
-              image, InputImageRotation.rotation0deg);
-
-          if (details['cardNumber']!.isNotEmpty && details['expiryDate']!.isNotEmpty) {
-            _textRecognitionStopped = true;
-
-            context.read<CardDetailsCubit>().updateCardDetails(
-              details['cardNumber']!,
-              details['expiryDate']!,
-            );
-
-            await Future.delayed(const Duration(seconds: 3));
-
-            if (mounted) {
-              Navigator.pop(context, {
-                'cardNumber': details['cardNumber']!,
-                'expiryDate': details['expiryDate']!,
-              });
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint("Error during text recognition: $e");
+      final details = await _recognizeCardDetails(image);
+      if (details != null && !_isProcessing) {
+        _updateCardDetails(details);
       }
     });
   }
 
+  Future<Map<String, String>?> _recognizeCardDetails(CameraImage image) async {
+    try {
+      final details = await _cardTextRecognaitionService.extractCardDetails(
+          image, InputImageRotation.rotation0deg);
+      return details;
+    } catch (e) {
+      debugPrint("Error during text recognition: $e");
+      return null;
+    }
+  }
+
+  void _updateCardDetails(Map<String, String> details) {
+    context.read<CardDetailsCubit>().updateCardDetails(
+      details['cardNumber']!,
+      details['expiryDate']!,
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final cardWidth = width - 64;
-    final cardHeight = cardWidth / (85.60 / 53.98);
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          _buildCameraPreview(),
-          _buildCardOverlay(cardWidth, cardHeight),
-          _buildUI(cardWidth, cardHeight),
-        ],
-      ),
+    return Stack(
+      children: [
+        _buildCameraPreview(),
+        _buildCardOverlay(),
+        Positioned.fill(
+          child: _buildCardInfo(),
+        )
+      ],
     );
   }
 
@@ -111,77 +109,76 @@ class _ScanCardScreenState extends State<ScanCardScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final aspectRatio = previewSize.height / previewSize.width;
-
+    final scale = 1 /
+        (_cameraService.cameraController!.value.aspectRatio *
+            MediaQuery.of(context).size.aspectRatio);
     return Transform.scale(
-      scale: 1.0,
-      child: AspectRatio(
-        aspectRatio: aspectRatio,
-        child: CameraPreview(_cameraService.cameraController!),
-      ),
+      scale: scale,
+      alignment: Alignment.topCenter,
+      child: CameraPreview(_cameraService.cameraController!),
     );
   }
 
+  Widget _buildCardOverlay() {
+    final width = MediaQuery.of(context).size.width;
+    final cardWidth = width - 64;
+    final cardHeight = cardWidth / (85.60 / 53.98);
 
-  Widget _buildCardOverlay(double cardWidth, double cardHeight) {
-    return CustomPaint(
-      size: const Size(double.infinity, double.infinity),
-      painter: CardOverlayPainter(cardWidth: cardWidth, cardHeight: cardHeight),
-    );
-  }
-
-  Widget _buildUI(double cardWidth, double cardHeight) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const SizedBox(height: 50),
-        const Text(
-          "Kartani ekranning o'rtasiga joylashtiring",
-          style: TextStyle(color: Colors.white, fontSize: 18),
-          textAlign: TextAlign.center,
+    return Positioned.fill(
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: ShapeDecoration(
+          shape: QrScannerOverlayShape(
+            borderColor: Colors.white,
+            borderRadius: 10,
+            borderLength: 20,
+            borderWidth: 5,
+            cutOutHeight: cardHeight,
+            cutOutWidth: cardWidth,
+          ),
         ),
-        const Spacer(),
-        _buildCardInfo(),
-        const Spacer(),
-        _buildManualEntryButton(),
-        SizedBox(height: 50),
-      ],
+      ),
     );
   }
 
   Widget _buildCardInfo() {
     return BlocBuilder<CardDetailsCubit, Map<String, String>>(
       builder: (context, state) {
-        return Column(
-          children: [
-            Text(
-              state['cardNumber'] ?? '',
-              style: const TextStyle(color: Colors.white, fontSize: 18),
-              textAlign: TextAlign.center,
+        final cardNumber = state['cardNumber'] ?? '';
+        final expiryDate = state['expiryDate'] ?? '';
+        if (!_isProcessing && cardNumber.isNotEmpty && expiryDate.isNotEmpty) {
+          _isProcessing = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Future.delayed(const Duration(seconds: 3), () {
+              if (mounted) {
+                Navigator.pop(context, {
+                  'cardNumber': state['cardNumber'] ?? '',
+                  'expiryDate': state['expiryDate'] ?? ''
+                });
+              }
+            });
+          });
+        }
+        return Positioned.fill(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  cardNumber,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(color: white),
+                ),
+                Text(
+                  expiryDate,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(color: white),
+                ),
+              ],
             ),
-            Text(
-              state['expiryDate'] ?? '',
-              style: const TextStyle(color: Colors.white, fontSize: 18),
-              textAlign: TextAlign.center,
-            ),
-          ],
+          ),
         );
       },
-    );
-  }
-
-  Widget _buildManualEntryButton() {
-    return ElevatedButton(
-      onPressed: () {
-        // Manual entry action
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-      ),
-      child: const Text(
-        "Qo'l bilan kiritish",
-        style: TextStyle(color: Colors.black),
-      ),
     );
   }
 }

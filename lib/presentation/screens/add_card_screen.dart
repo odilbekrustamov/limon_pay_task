@@ -6,9 +6,9 @@ import 'package:limon_pay/presentation/screens/scan_card/scan_card_screen.dart';
 import 'package:limon_pay/presentation/widgets/input_decoration.dart';
 import 'package:limon_pay/theme/color.dart';
 
+import '../../nfc_screen.dart';
 import '../bloc/add_card/add_card_bloc.dart';
 import '../widgets/icon_button_widget.dart';
-import 'dialog/nfc_dialog.dart';
 
 class AddCardScreen extends StatefulWidget {
   const AddCardScreen({super.key});
@@ -148,7 +148,12 @@ class _AddCardScreenState extends State<AddCardScreen> {
                     Expanded(
                       child: IconButtonWidget(
                         onPressed: () {
-                          showNfcCardScanDialog(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const NfcScreen(),
+                            ),
+                          );
                         },
                         icon: Icons.nfc,
                         label: "NFC Card",
